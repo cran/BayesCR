@@ -95,3 +95,54 @@ verosCN <- function(auxf,cc,cens,sigma2,nu)
   }
   return(ver1)
 }
+
+
+Rhat1 <- function(param,n.iter,burnin,n.chains,n.thin) 
+{
+ param <- as.matrix(param)
+ efect <- (n.iter-burnin)/n.thin
+     p <- ncol(param)
+   mat <- matrix(param,nrow=efect,ncol=n.chains*p)    
+  rhat <- matrix(0,nrow=p,ncol=1)                                          
+   for(i in 1:p)
+   {
+    l1 <- 2*(i-1)+1
+    c1 <- 2*i
+    rhat[i,1] <- Rhat(mat[,l1:c1]) 
+   }
+return(rhat=rhat)
+}
+
+
+Rhat <- function(mat) 
+{
+  m <- ncol(mat)
+  n <- nrow(mat)
+  b <- apply(mat,2,mean)
+  B <- sum((b-mean(mat))^2)*n/(m-1)
+  w <- apply(mat,2,var)
+  W <- mean(w)
+  s2hat <- (n-1)/n*W + B/n
+  Vhat <- s2hat + B/m/n 
+  covWB <- n /m * (cov(w,b^2)-2*mean(b)*cov(w,b))
+  varV <- (n-1)^2 / n^2 * var(w)/m +
+          (m+1)^2 / m^2 / n^2 * 2*B^2/(m-1) +
+          2 * (m-1)*(n-1)/m/n^2 * covWB
+  df <- 2 * Vhat^2 / varV
+  R <- sqrt((df+3) * Vhat / (df+1) / W)
+  return(R)
+ }
+ 
+ 
+hpd <- function(x, alpha)
+{
+   n <- length(x)
+   m <- max(1, ceiling(alpha * n))
+
+   y <- sort(x)
+   a <- y[1:m]
+   b <- y[(n - m + 1):n]
+
+   i <- order(b - a)[1]
+   structure(c(a[i], b[i]), names = c("Lower Bound", "Upper Bound"))
+}

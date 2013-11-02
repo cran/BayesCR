@@ -4,7 +4,7 @@
 # tipos de censuras. 
 # Para o caso t-Student usamos diferentes dist. a prioris para \nu (desconhecido)       
 ################################################################################
-
+ 
 ### Apriori Jeffreys
 ##########################
 
@@ -28,8 +28,8 @@ MHnu<-function(last,U,lambda,prior="Jeffreys",hyper)
    q2 <- attr(aux1,"hessian")[1]+sum(attr(aux2,"hessian"))
    aw <- last-q1/q2
    bw <- max(0.001,-1/q2)
- cand <- rtruncnorm(1, a=2.1, b=100, mean = aw, sd = sqrt(bw))
- alfa <- (exp(gJeffreys(cand,U))/exp(gJeffreys(last,U)))*(dtruncnorm(last, a=2.1, b=100, mean = aw, sd = sqrt(bw))/dtruncnorm(cand, a=2.1, b=100, mean = aw, sd = sqrt(bw)))
+ cand <- rtrunc(1, spec="norm",a=2.1, b=100, mean = aw, sd = sqrt(bw)) 
+ alfa <- (exp(gJeffreys(cand,U))/exp(gJeffreys(last,U)))*(dtrunc(last,spec="norm",a=2.1, b=100, mean = aw, sd = sqrt(bw))/dtrunc(cand,spec="norm", a=2.1, b=100, mean = aw, sd = sqrt(bw)))
       }
 
       if(prior=="Exp")           # Exponencial (hiperpar)
@@ -49,8 +49,8 @@ MHnu<-function(last,U,lambda,prior="Jeffreys",hyper)
                     q2<-attr(aux1,"hessian")[1]+sum(attr(aux2,"hessian"))
                     aw<- last-q1/q2
                     bw<- max(0.001,-1/q2)
-                  cand<-rtruncnorm(1, a=2.1, b=100, mean = aw, sd = sqrt(bw))
-                  alfa<-(exp(gExp(cand,U,hyper))/exp(gExp(last,U,hyper)))*(dtruncnorm(last, a=2.1, b=100, mean = aw, sd = sqrt(bw))/dtruncnorm(cand, a=2.1, b=100, mean = aw, sd = sqrt(bw)))
+                  cand <- rtrunc(1, spec="norm",a=2.1, b=100, mean = aw, sd = sqrt(bw))                  
+                  alfa<-(exp(gExp(cand,U,hyper))/exp(gExp(last,U,hyper)))*(dtrunc(last,spec="norm",a=2.1, b=100, mean = aw, sd = sqrt(bw))/dtrunc(cand,spec="norm", a=2.1, b=100, mean = aw, sd = sqrt(bw)))
       }
 
       if(prior=="Unif")           # Uniforme(2,100)
@@ -70,8 +70,9 @@ MHnu<-function(last,U,lambda,prior="Jeffreys",hyper)
                   q2<-attr(aux1,"hessian")[1]+sum(attr(aux2,"hessian"))
                   aw<- last-q1/q2
                   bw<- max(0.001,-1/q2)
-                cand<-rtruncnorm(1, a=2.1, b=100, mean = aw, sd = sqrt(bw))
-                alfa<-(exp(gUnif(cand,U))/exp(gUnif(last,U)))*(dtruncnorm(last, a=2.1, b=100, mean = aw, sd = sqrt(bw))/dtruncnorm(cand, a=2.1, b=100, mean = aw, sd = sqrt(bw)))
+                cand <- rtrunc(1, spec="norm",a=2.1, b=100, mean = aw, sd = sqrt(bw))                                  
+                alfa<-(exp(gUnif(cand,U))/exp(gUnif(last,U)))*(dtrunc(last,spec="norm",a=2.1, b=100, mean = aw, sd = sqrt(bw))/dtrunc(cand,spec="norm", a=2.1, b=100, mean = aw, sd = sqrt(bw)))
+
       }
         
       if(prior=="Hierar")           # Hierárquica
@@ -91,8 +92,8 @@ MHnu<-function(last,U,lambda,prior="Jeffreys",hyper)
                    q2<-attr(aux1,"hessian")[1]+sum(attr(aux2,"hessian"))
                    aw<- last-q1/q2
                    bw<- max(0.001,-1/q2)
-                 cand<-rtruncnorm(1, a=2.1, b=100, mean = aw, sd = sqrt(bw))
-                 alfa<-(exp( gHierar(cand,U))/exp( gHierar(last,U)))*(dtruncnorm(last, a=2.1, b=100, mean = aw, sd = sqrt(bw))/dtruncnorm(cand, a=2.1, b=100, mean = aw, sd = sqrt(bw)))
+                 cand <- rtrunc(1, spec="norm",a=2.1, b=100, mean = aw, sd = sqrt(bw))                                   
+                 alfa<-(exp( gHierar(cand,U))/exp( gHierar(last,U)))*(dtrunc(last,spec="norm",a=2.1, b=100, mean = aw, sd = sqrt(bw))/dtrunc(cand,spec="norm", a=2.1, b=100, mean = aw, sd = sqrt(bw)))
       }
       
       ifelse(runif(1) < min(alfa, 1), last <- cand, last<-last)
@@ -121,106 +122,127 @@ return(last)
 # ALGORITMO DE GIBBS
 ################################################################################
 
-GibbsTruncSMN<-function(cc,y,x,n.iter,n.thin,burnin,type="normal", cens="1",prior="Jeffreys",hyper=hyper)
-{                                                   
-x <- as.matrix(x)
-p <- ncol(x)                                            
-n <- nrow(x)                                                
-y1<-y
-
-#### Atualizador 
-
-  Cont <- ceiling(n.iter/10)
-n.iter <- Cont*10
-     z <- 1
-     W <- seq(Cont,n.iter,Cont)      
+GibbsTruncSMN<-function(cc,y,x,n.iter,n.thin,burnin,type="normal", cens="1",prior="Jeffreys",hyper=hyper, n.chains=n.chains)
+{
+        cad <- 0
+          x <- as.matrix(x)
+          p <- ncol(x)                                            
+          n <- nrow(x)                                                
+      sigma2<- lambda<- Aux <- V <- rho <- matrix(0,n.iter*n.chains,1)
+       media<- matrix(0,n.iter*n.chains,n)
+        beta<- matrix(0,n.iter*n.chains,p)
+          y1<-y
    
-###### Hiper parâmetros: comum ######
-mu0<-matrix(0,p,1)
-Sigma0<-1000*diag(p)
-alfa1<-0.1
-alfa2<-0.01
-   a <-  r1 <- 0.02       ### Hiper Parametros de Lambda ~ Unif(0.02,0.5)
-   b <-  s1 <- 0.5        ### Hiper Parametros de Lambda do Truncamento
-beta<- matrix(0,n.iter,p)
-sigma2<- lambda<- Aux <- V <- rho <- matrix(0,n.iter,1)
-media<-matrix(0,n.iter,n)
+          ###### Hiper parâmetros: comum ######
+          mu0<-matrix(0,p,1)
+       Sigma0<-1000*diag(p)
+        alfa1<-0.1
+        alfa2<-0.01
+           a <-  r1 <- 0.02       ### Hiper Parametros de Lambda ~ Unif(0.02,0.5)
+           b <-  s1 <- 0.5        ### Hiper Parametros de Lambda do Truncamento
 
-##### Inicializa beta e sigma2 com os estimadores de mínimos quadrados#####
+      cat('% of iterations \n')
+    if(type=="T")
+    {
+        U  <-matrix(0,n.iter*n.chains,n)
+        nu <-matrix(0,n.iter*n.chains,1)
+       set1<- set <- c()
+   while(cad< n.chains)
+   {
+         cad <- cad +1
+  #### Atualizador 
+   Cont <- ceiling(n.iter/10)
+ n.iter <- Cont*10
+    Lin <- n.iter*(cad-1)
+      W <- seq(Cont+Lin,n.iter*cad,Cont)
+      W 
+          reg <- lm(y ~ x[,2:p]) # Consideramos depois da seugna coluna porque "lm"  inlui a colunas de 1
+            z <- 1 
+    lambda[1+ Lin] <- 1
+      beta[1+ Lin,]<- as.vector(coefficients(reg),mode="numeric")
+    sigma2[1+ Lin] <- sum((y-x%*%(beta[1+Lin,]))^2)/(n-p)
+     media[1+ Lin,]<-x%*%(beta[1+Lin,])
 
-reg <- lm(y ~ x[,2:p]) # Consideramos depois da seugna coluna porque "lm"  inlui a colunas de 1
-lambda[1] <- 1
-beta[1,]<- as.vector(coefficients(reg),mode="numeric")
-sigma2[1] <- sum((y-x%*%(beta[1,]))^2)/(n-p)
-media[1,]<-x%*%(beta[1,])
-if(type=="T")
-{
-        U  <-matrix(0,n.iter,n)
-        nu <-matrix(0,n.iter,1)
-      U[1,]<-rinvgamma(1,1)       
-      nu[1]<- 6
-cat("\n")
-cat('% of iterations \n')
-cat('**********\n')
-cat("0%      100%")
-cat("\n")
-for (j in 2:n.iter)
-{
- if(cens=="1")
- {
- y[cc==1] <- rtruncnorm(1, a=-Inf, b=y1[cc==1], mean = media[j-1,cc==1], sd = sqrt((U[j-1,cc==1])^(-1)*sigma2[j-1])) ### Densid de Y/Resto - Cens Right
- }
- if(cens=="2")
- {          
- y[cc==1] <- rtruncnorm(1, a=y1[cc==1], b=Inf, mean = media[j-1,cc==1], sd = sqrt((U[j-1,cc==1])^(-1)*sigma2[j-1]))  ### Densid de Y/Resto - Cens Left
- }
-         sigma2[j] <-rinvgamma(1, alfa1+n/2, scale = (sum(U[j-1,]*(y-media[j-1,])^2)/2+alfa2))                       ### Densid de sigma2/Resto   
-             	xast <-sqrt(U[j-1,])*x
-            	yast <-sqrt(U[j-1,])*y
-          	SigmaA <-solve(solve(Sigma0)+t(xast)%*%(xast)/sigma2[j])
-               muA <- SigmaA%*%(solve(Sigma0)%*%mu0+t(xast)%*%yast/sigma2[j])
-           beta[j,]<-rmvnorm(1,muA,SigmaA)                                                                           ### Densid de beta/Resto   
-         	media[j,]<-x%*%(beta[j,])
-        	   meany2<-(y-media[j,])^2/sigma2[j-1]
-   	        par2gam<- (meany2+nu[j-1])/2
-          	 U[j,]<-rgamma(n,nu[j-1]/2+0.5,par2gam)                                                                  ### Densid de U/Resto    
+      U[1+Lin,]<-rinvgamma(1,1)       
+      nu[1+Lin]<- 6
+      cat("\n")
+       Fil <- 2 + Lin
+       Col <- n.iter*cad
+      for (j in Fil:Col)
+      {
+    if(cens=="1")
+    {
+    y[cc==1] <- rtruncnorm(1, a=-Inf, b=y1[cc==1], mean = media[j-1,cc==1], sd = sqrt((U[j-1,cc==1])^(-1)*sigma2[j-1]))## Densid de Y/Resto - Cens Right
+    }
+   if(cens=="2")
+    {          
+    y[cc==1] <- rtruncnorm(1, a=y1[cc==1], b=Inf, mean = media[j-1,cc==1], sd = sqrt((U[j-1,cc==1])^(-1)*sigma2[j-1]))  ### Densid de Y/Resto - Cens Left
+    }
+    sigma2[j] <-rinvgamma(1, alfa1+n/2, scale = (sum(U[j-1,]*(y-media[j-1,])^2)/2+alfa2))                       ### Densid de sigma2/Resto   
+        	xast <-sqrt(U[j-1,])*x
+        	yast <-sqrt(U[j-1,])*y
+       	SigmaA <-solve(solve(Sigma0)+t(xast)%*%(xast)/sigma2[j])
+           muA <- SigmaA%*%(solve(Sigma0)%*%mu0+t(xast)%*%yast/sigma2[j])
+       beta[j,]<-rmvnorm(1,muA,SigmaA)                                                                           ### Densid de beta/Resto   
+     	media[j,]<-x%*%(beta[j,])
+     	   meany2<-(y-media[j,])^2/sigma2[j-1]
+        par2gam<- (meany2+nu[j-1])/2
+       	  U[j,]<-rgamma(n,nu[j-1]/2+0.5,par2gam)                                                                  ### Densid de U/Resto    
 
-            Aux[j] <- runif(1,0,1)
-              V[j] <- pgamma(a,nu[j-1]) + (pgamma(b,2,nu[j-1])- pgamma(a,2,nu[j-1]))*Aux[j]
-         lambda[j] <- qgamma(V[j],2,nu[j-1])                                                                                                                
-            	nu[j] <- MHnu(nu[j-1],U[j,],lambda[j],prior,hyper)                                                     ### Densid de Nu/Resto    
+        Aux[j] <- runif(1,0,1)
+          V[j] <- pgamma(a,nu[j-1]) + (pgamma(b,2,nu[j-1])- pgamma(a,2,nu[j-1]))*Aux[j]
+     lambda[j] <- qgamma(V[j],2,nu[j-1])                                                                                                                
+         nu[j] <- MHnu(nu[j-1],U[j,],lambda[j],prior,hyper)                                                     ### Densid de Nu/Resto    
 
-###### Cont Atualizador
-if(j==W[z])
-{
- z <- z +1
- BayCens(2,n.iter,j)
-}
-######
-}
-cat('\r')
-initial<-ceiling(n.iter*burnin)
-set<-seq(initial,n.iter,n.thin)
-return(list(beta=beta[set,],sigma2=sigma2[set],U=U[set,],nu=nu[set],mu=media[set,]))
-}
-
+    ###### Cont Atualizador
+    if(j==W[z])
+    {
+     z <- z +1
+     BayCens(Fil,Col,j,cad)
+    }
+    ######
+    }
+    cat('\r')
+   initial <- burnin 
+       set1 <- seq(initial+n.thin +n.iter*(cad-1) ,n.iter*cad,n.thin)
+        set <- c(set,set1)
+   }
+    return(list(beta=beta[set,],sigma2=sigma2[set],U=U[set,],nu=nu[set],mu=media[set,]))
+    }
 if(type=="Normal")
 {
-cat("\n")
-cat('% of iterations \n')
-cat('**********\n')
-cat("0%      100%")
-cat("\n")
-for (j in 2:n.iter)
-{
- if(cens=="1")  
- {
- y[cc==1] <- rtruncnorm(1, a=-Inf, b=y1[cc==1], mean = media[j-1,cc==1], sd = sqrt(sigma2[j-1]))                      ### Densid de Y/Resto - Cens Left
- }
- if(cens=="2")
- {
- y[cc==1] <- rtruncnorm(1, a=y1[cc==1], b=Inf, mean = media[j-1,cc==1], sd = sqrt(sigma2[j-1]))                       ### Densid de Y/Resto - Cens Right
- }
+
+   set1<- set <- c()
+   while(cad< n.chains)
+   {
+   
+    cad <- cad +1
+  #### Atualizador 
+  
+   Cont <- ceiling(n.iter/10)
+ n.iter <- Cont*10
+    Lin <- n.iter*(cad-1)
+      W <- seq(Cont+Lin,n.iter*cad,Cont)
+      W 
+    reg <- lm(y ~ x[,2:p]) # Consideramos depois da seugna coluna porque "lm"  inlui a colunas de 1
+      z <- 1 
+#    lambda[1+ Lin] <- 1
+      beta[1+ Lin,]<- as.vector(coefficients(reg),mode="numeric")
+    sigma2[1+ Lin] <- sum((y-x%*%(beta[1+Lin,]))^2)/(n-p)
+     media[1+ Lin,]<-x%*%(beta[1+Lin,])
+    cat("\n")
+    Fil <- 2 + Lin
+    Col <- n.iter*cad
+   for (j in Fil:Col)
+   {
+     if(cens=="1")  
+     {
+     y[cc==1] <- rtruncnorm(1, a=-Inf, b=y1[cc==1], mean = media[j-1,cc==1], sd = sqrt(sigma2[j-1]))                 ### Densid de Y/Resto - Cens Left
+     }
+     if(cens=="2")
+     {
+     y[cc==1] <- rtruncnorm(1, a=y1[cc==1], b=Inf, mean = media[j-1,cc==1], sd = sqrt(sigma2[j-1]))                  ### Densid de Y/Resto - Cens Right
+     }
  sigma2[j]<- rinvgamma(1, alfa1+n/2, scale = (sum((y-media[j-1,])^2)/2+alfa2))                                        ### Densid de sigma2/Resto    
      xast <- x
    	 yast <- y
@@ -229,43 +251,58 @@ for (j in 2:n.iter)
  beta[j,] <- rmvnorm(1,muA,SigmaA)                                                                                    ### Densidade de beta/Resto
 media[j,] <- x%*%(beta[j,])
 
-###### Cont Atualizador
-if(j==W[z])
-{
- z <- z +1
- BayCens(2,n.iter,j)
+    ###### Cont Atualizador
+    if(j==W[z])
+    {
+     z <- z +1
+     BayCens(Fil,Col,j,cad)
+    }
+    ######
+    }
+    cat('\r')
+   initial <- burnin 
+       set1 <- seq(initial+n.thin +n.iter*(cad-1) ,n.iter*cad,n.thin)
+        set <- c(set,set1)    
 }
-######
-}    
-cat("\r") 
-cat("\n")                                      
-initial<-ceiling(n.iter*burnin)
-set<-seq(initial,n.iter,n.thin)
 return(list(beta=beta[set,],sigma2=sigma2[set],mu=media[set,]))
 }
 if(type=="Slash")                     
 {
 # r1 <- s1 <- 100000
-  r1 <- 0.01                             
-  s1 <- 1
-   U <-matrix(0,n.iter,n)                  
-  nu <-matrix(0,n.iter,1)
-U[1,]<-runif(n,0,1)
-nu[1]<- 1.5 
-cat("\n")
-cat('% of iterations \n')
-cat('**********\n')
-cat("0%      100%")
-cat("\n")                                 
- for (j in 2:n.iter)
+  U <-matrix(0,n.iter*n.chains,n)
+ nu <-matrix(0,n.iter*n.chains,1)
+set1<- set <- c()
+   while(cad< n.chains)
+   {
+    r1 <- 0.01                             
+    s1 <- 1
+   cad <- cad +1
+  #### Atualizador 
+   Cont <- ceiling(n.iter/10)
+ n.iter <- Cont*10
+    Lin <- n.iter*(cad-1)
+      W <- seq(Cont+Lin,n.iter*cad,Cont)
+      W 
+    reg <- lm(y ~ x[,2:p]) # Consideramos depois da seugna coluna porque "lm"  inlui a colunas de 1
+      z <- 1 
+      beta[1+ Lin,]<- as.vector(coefficients(reg),mode="numeric")
+    sigma2[1+ Lin] <- sum((y-x%*%(beta[1+Lin,]))^2)/(n-p)
+     media[1+ Lin,]<- x%*%(beta[1+Lin,])
+#        U[1+Lin,] <- runif(n,0,1)       
+         U[1+Lin,] <- rbeta(n,1,1)       
+         nu[1+Lin] <- 1.5
+      cat("\n")
+       Fil <- 2 + Lin
+       Col <- n.iter*cad
+ for (j in Fil:Col)
  {
  if(cens=="1")
  {
- y[cc==1] <- rtruncnorm(1, a=-Inf, b=y1[cc==1], mean = media[j-1,cc==1], sd = sqrt((U[j-1,cc==1])^(-1)*sigma2[j-1])) ### Densid de Y/Resto - Cens Lefth
+  y[cc==1] <- rtruncnorm(1, a=-Inf, b=y1[cc==1], mean = media[j-1,cc==1], sd = sqrt((U[j-1,cc==1])^(-1)*sigma2[j-1])) ### Densid de Y/Resto - Cens Lefth
  }
  if(cens=="2")                                
  {
- y[cc==1] <- rtruncnorm(1, a=y1[cc==1], b=Inf, mean = media[j-1,cc==1], sd = sqrt((U[j-1,cc==1])^(-1)*sigma2[j-1]))  ### Densid de Y/Resto - Cens Right
+  y[cc==1] <- rtruncnorm(1, a=y1[cc==1], b=Inf, mean = media[j-1,cc==1], sd = sqrt((U[j-1,cc==1])^(-1)*sigma2[j-1]))  ### Densid de Y/Resto - Cens Right
  }
 sigma2[j] <- rinvgamma(1, alfa1+n/2, scale = (sum(U[j-1,]*(y-media[j-1,])^2)/2+alfa2))                               ### Densid de sigma2/Resto   
     xast <- sqrt(U[j-1,])*x                     
@@ -276,47 +313,62 @@ sigma2[j] <- rinvgamma(1, alfa1+n/2, scale = (sum(U[j-1,]*(y-media[j-1,])^2)/2+a
 media[j,] <- x%*%(beta[j,])      
    meany2 <- (y-media[j,])^2/sigma2[j-1]
   par2gam <- (meany2)/2                                                                                            
-  	U[j,] <- rtrunc(n, "gamma", a =0 , b =1 , shape=nu[j-1]+0.5, scale=1/par2gam)                                    ### Densid de U/Resto    
-             
+  	U[j,] <- rtrunc(n, "gamma", a =0.001 , b =1 , shape=nu[j-1]+0.5, scale=1/par2gam)                                    ### Densid de U/Resto    
+    
+#   print(U[j,])         
     rho[j] <- rtrunc(1, "gamma", a = r1, b =s1 , shape=2, scale=1/nu[j-1])
      nu[j] <- rgamma(1,shape= n+1,rate = rho[j]-sum(log(U[j,])))                                                     ### Densidade de Nu/Resto    
- 
-###### Cont Atualizador
-if(j==W[z])
-{
- 
- z <- z +1
- BayCens(2,n.iter,j)
-}
-######
 
+    ###### Cont Atualizador
+    if(j==W[z])
+    {
+     z <- z +1
+     BayCens(Fil,Col,j,cad)
+    }
+    ######
 }
-cat("\r")
-initial<-ceiling(n.iter*burnin)
-set<-seq(initial,n.iter,n.thin)
+   cat('\r')
+   initial <- burnin 
+       set1 <- seq(initial+n.thin +n.iter*(cad-1) ,n.iter*cad,n.thin)
+        set <- c(set,set1)   
+}
 return(list(beta=beta[set,],sigma2=sigma2[set],U=U[set,],nu=nu[set],mu=media[set,]))
 }
 if(type=="NormalC")
 {
- U <-matrix(0,n.iter,n)
- nu <-rho <- rho1<- matrix(0,n.iter,1)
- p1 <- p2 <- ptot <- A <- matrix(0,n.iter,n)
+  U <-matrix(0,n.iter*n.chains,n)
+ nu <-rho <- rho1 <- matrix(0,n.iter*n.chains,1)
+ p1 <- p2 <- ptot <- A <- matrix(0,n.iter*n.chains,n)
+set1<- set <- c()
+
+   while(cad< n.chains)
+   {
  AuxCN <- matrix(0,n,1)
  v0 <- s0 <- 2 
  v1 <- s1 <- 2
- rho[1] <- nu[1] <- 0.4
- cont  <- c()
- U[1,] <- 1
-cat("\n")
-cat('% of iterations \n')
-cat('**********\n')
-cat("0%      100%")
-cat("\n")
- for (j in 2:n.iter)
+cad <- cad +1
+  #### Atualizador 
+   Cont <- ceiling(n.iter/10)
+ n.iter <- Cont*10
+    Lin <- n.iter*(cad-1)
+      W <- seq(Cont+Lin,n.iter*cad,Cont)
+      W 
+    reg <- lm(y ~ x[,2:p]) # Consideramos depois da seugna coluna porque "lm"  inlui a colunas de 1
+      z <- 1 
+      beta[1+ Lin,]<- as.vector(coefficients(reg),mode="numeric")
+    sigma2[1+ Lin] <- sum((y-x%*%(beta[1+Lin,]))^2)/(n-p)
+     media[1+ Lin,]<- x%*%(beta[1+Lin,])
+         U[1+Lin,] <- 1
+       rho[1+Lin] <- nu[1+Lin] <- 0.4
+      cat("\n")
+       Fil <- 2 + Lin
+       Col <- n.iter*cad
+     cont  <- c()       
+ for (j in Fil:Col)
  {
  if(cens=="1")
  {
- y[cc==1] <- rtruncnorm(1, a=-Inf, b=y1[cc==1], mean = media[j-1,cc==1], sd = sqrt((U[j-1,cc==1])^(-1)*sigma2[j-1])) ### Densid de Y/Resto - Cens Right
+  y[cc==1] <- rtruncnorm(1, a=-Inf, b=y1[cc==1], mean = media[j-1,cc==1], sd = sqrt((U[j-1,cc==1])^(-1)*sigma2[j-1])) ### Densid de Y/Resto - Cens Right
  }
  if(cens=="2")
  {
@@ -351,14 +403,16 @@ media[j,] <- x%*%(beta[j,])
 ###### Cont Atualizador
 if(j==W[z])
 {
- z <- z +1
- BayCens(2,n.iter,j)
+z <- z +1
+BayCens(Fil,Col,j,cad)
 }
-######  
- }
-   cat("\r")
-   initial <- ceiling(n.iter*burnin)
-       set <- seq(initial,n.iter,n.thin)
+######
+}
+   cat('\r')
+   initial <- burnin 
+       set1 <- seq(initial+n.thin +n.iter*(cad-1) ,n.iter*cad,n.thin)
+        set <- c(set,set1)   
+}
 return(list(beta=beta[set,],sigma2=sigma2[set],U=U[set,],nu=nu[set],rho=rho[set],mu=media[set,]))
 }
 }
@@ -370,16 +424,17 @@ return(list(beta=beta[set,],sigma2=sigma2[set],U=U[set,],nu=nu[set],rho=rho[set]
 ## Updating Iterations
 ##########################
 
-BayCens <- function(start.iter,end.iter,j, ...)
+BayCens <- function(start.iter,end.iter,j,cad, ...)
 {
     pb <- txtProgressBar(start.iter,end.iter,
-                     initial = start.iter, style=1, width=10,
-                     char="*")
+                     initial = start.iter, style=3, width=10,
+                     char=ifelse((cad ==1||cad==3),"+","*"))
    Sys.sleep(0.5); setTxtProgressBar(pb, j)
     cat("\r")
- #  close(pb)
     cat("\r")
 }
+
+
 ###########################
 
 ################################################################################
@@ -620,13 +675,14 @@ JL<- apply((aa-1)*log(aa),1,mean)
 LL<- apply(abs(aa-1),1,mean)
 CHL<- apply((aa-1)^2,1,mean)
 
- casIL <- min(sum(IL>0.143),6)
- casJL <- min(sum(JL>0.274),6)
- casLL <- min(sum(LL>0.500),6)
-casCHL <- min(sum(CHL>0.250),6)
+ casIL <- min(sum(IL>0.143),5)
+ casJL <- min(sum(JL>0.274),5)
+ casLL <- min(sum(LL>0.500),5)
+casCHL <- min(sum(CHL>0.250),5)
 
 ### Diagnostico
-par(mfrow = c(2,2 ))
+#par(mfrow = c(2,2 ))
+par(mfrow = c(1,3 ))
 
 plot(IL, ylab="K-L divergence", xlab="Index",type="h",main="")
 abline(h=0.143)
@@ -646,11 +702,11 @@ if(casLL>0)
 {
 identify(LL,n=casLL)
 }
-plot(CHL, ylab="Chi divergence", xlab="Index",type="h",main="")
-abline(h=0.250)
-if(casCHL>0)
-{
-identify(CHL,n=casCHL)
-}
+#plot(CHL, ylab="Chi divergence", xlab="Index",type="h",main="")
+#abline(h=0.250)
+#if(casCHL>0)
+#{
+#identify(CHL,n=casCHL)
+#}
 }
 

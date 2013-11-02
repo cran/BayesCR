@@ -29,18 +29,20 @@ data(wage.rate)
 
 ## Fits a left censored Normal model 
 
-Normal<- Bayes.CR(cc, x,y,cens="1",type="Normal",criteria="TRUE",influence="FALSE",
-prior=NULL,hyper=NULL,n.thin=10,burnin=0.2,n.iter=2500, chain="TRUE")
+Normal<- Bayes.CR(cc, x,y,cens="1",type="Normal",influence="FALSE",prior=NULL,
+hyper=NULL,n.thin=10,burnin=100,n.iter=2000,n.chains=2,chain="TRUE")
+
 
 ## Fits a left censored T model, using Hierarchical prior for degree freedon
 
-T<- Bayes.CR(cc, x,y,cens="1",type="T",criteria="TRUE",influence="FALSE",
-prior="Hierar",hyper=NULL,n.thin=10,burnin=0.2,n.iter=2500, chain="TRUE")
+T<- Bayes.CR(cc, x,y,cens="1",type="T",influence="FALSE",prior="Hierar",
+hyper=NULL,n.thin=10,burnin=100,n.iter=2000, n.chains=2,chain="TRUE")
+
 
 ## Fits a left censored Slash model
 
-Slash<- Bayes.CR(cc, x,y,cens="1",type="Slash",criteria="TRUE",influence="FALSE",
-prior=NULL,hyper=NULL,n.thin=10,burnin=0.2,n.iter=2500, chain="TRUE")
+Slash<- Bayes.CR(cc, x,y,cens="1",type="Slash",influence="FALSE",prior=NULL,
+hyper=NULL,n.thin=15,burnin=100,n.iter=2000, n.chains=2,chain="TRUE")
 
 }
 }

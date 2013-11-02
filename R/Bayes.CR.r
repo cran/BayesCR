@@ -11,21 +11,27 @@
 # algoritmo Gibbs para o caso normal, T, Slash, Normal Contaminado para os dois 
 # tipos de censuras. 
 # Para o caso t-Student usamos diferentes dist. a prioris para \nu (desconhecido)       #
-# criteria: TRUE ou FALSE - should compute EDC, EAIC, CPO and P_value criterias for model selection
-################################################################################                     influence - burn    prior -  hyper  - chain
+# influence - burn    prior -  hyper  - chain
+################################################################################                     
 
-Bayes.CR <- function(cc, x,y,cens="1",type="Normal",criteria="FALSE",influence="FALSE",prior=NULL,hyper=NULL,n.thin=10,burnin=0.2,n.iter=25000,chain="TRUE")
+Bayes.CR <- function(cc, x,y,cens="1",type="Normal",influence="FALSE",prior=NULL,hyper=NULL,n.thin=10,burnin=100,n.iter=2000,n.chains=2,chain="TRUE")
 {
 	## Verify error at parameters specification
-	if(ncol(as.matrix(y)) > 1) stop("Only univariate linear regression supported!")
+
+	namesx <- ('x1     ')
+  if(ncol(as.matrix(x))>1){
+  	for(i in 2:ncol(as.matrix(x))){namesx <- cbind(namesx, paste("x",i,"     ",sep=""))}
+  }
+	if(n.chains > 4) stop("The number of chains must be less than 5")
+  if(ncol(as.matrix(y)) > 1) stop("Only univariate linear regression supported!")
   if(ncol(as.matrix(cc)) > 1) stop("Only univariate linear regression supported!")
 	if( length(y) != nrow(as.matrix(x)) ) stop("X variable does not have the same number of lines than y")
 	if( (length(x) == 0) | (length(y) == 0) ) stop("All parameters must be provided.")
 	if( (type != "T") && (type != "Normal") && (type != "Slash") && (type != "NormalC")) stop("Distribution family not supported. Check documentation!")
   if( (cens != "1") && (cens != "2")) stop("Censored type not supported. 1 for left censoring and 2 for right censoring.")
-  if (burnin < 0 || burnin > 1) 
+  if ((burnin >= n.iter)|| burnin < 1) 
   {
-  stop("Invalid burnin proportion")
+  stop("Invalid burnin number")
   }
   if (!is.numeric(n.iter) || n.iter < 1) 
   {
@@ -48,7 +54,7 @@ Bayes.CR <- function(cc, x,y,cens="1",type="Normal",criteria="FALSE",influence="
   }
   }
   
-      out <- GibbsTruncSMN(cc,y,x,n.iter,n.thin,burnin,type=type, cens=cens, prior, hyper)
+      out <- GibbsTruncSMN(cc,y,x,n.iter,n.thin,burnin,type=type, cens=cens, prior, hyper, n.chains=n.chains)
         p <- ncol(as.matrix(x))
     betas <- as.matrix(apply(out$beta,2,mean))
    sigma2 <- mean(out$sigma2)
@@ -59,25 +65,55 @@ Bayes.CR <- function(cc, x,y,cens="1",type="Normal",criteria="FALSE",influence="
       HPD <- matrix(0,nrow=p,ncol=2)
    for (i in 1:p)
    {
-    HPD[i,]<- boa.hpd(out$beta[,i],alpha=0.05)  
+    HPD[i,]<- hpd(out$beta[,i],alpha=0.05) 
+     
    }
-  HPDS2  <- boa.hpd(out$sigma2,alpha=0.05)  
+  HPDS2  <- hpd(out$sigma2,alpha=0.05)    
   HPDTot <- rbind(HPD,HPDS2)
   paramT <- round(cbind(param, se, HPDTot),digits=5)
+
+###
 namespar <- colnames(x) 
- dimnames(paramT) <- list(c(namespar,expression(sigma^2)),c("Mean", "Sd", " HPD(95%)",""))
+    colx <- ncol(as.matrix(x))
+if(length(namespar)==0)namespar <- namesx[1:colx]
+#namespar <- colnames(x) 
+if(n.chains>1)
+{
+   RBeta <- Rhat1(out$beta,n.iter,burnin,n.chains,n.thin) 
+  Rsigma <- Rhat1(out$sigma2,n.iter,burnin,n.chains,n.thin)
+ RhatFin <- rbind(RBeta,Rsigma)
+  paramT <- round(cbind(param, se, HPDTot,RhatFin),digits=5)
+dimnames(paramT) <- list(c(namespar,expression(sigma^2)),c("Mean", "Sd", " HPD(95%)","","Rhat"))
+}
+else{
+dimnames(paramT) <- list(c(namespar,expression(sigma^2)),c("Mean", "Sd", " HPD(95%)",""))
+}
  
   if( (type=="T") || (type=="Slash"))
   {
     nuFin <- mean(out$nu)
      senu <- sd(out$nu)    
-   HPDnu  <- boa.hpd(out$nu,alpha=0.05)
+   HPDnu  <- hpd(out$nu,alpha=0.05)  
     param <- rbind(betas,sigma2,nuFin)
        se <- rbind(sebetas,sesigma2,senu)
    HPDTot <- rbind(HPD,HPDS2,HPDnu)
    paramT <- round(cbind(param, se, HPDTot),digits=5)
  namespar <- colnames(x)
- dimnames(paramT) <- list(c(namespar,expression(sigma^2),expression(nu)),c("Mean", "Sd", " HPD(95%)",""))
+     colx <- ncol(as.matrix(x))
+if(length(namespar)==0)namespar <- namesx[1:colx]
+ 
+if(n.chains>1)
+{
+   RBeta <- Rhat1(out$beta,n.iter,burnin,n.chains,n.thin) 
+  Rsigma <- Rhat1(out$sigma2,n.iter,burnin,n.chains,n.thin)
+     Rnu <- Rhat1(out$nu,n.iter,burnin,n.chains,n.thin)  
+ RhatFin <- rbind(RBeta,Rsigma, Rnu)
+  paramT <- round(cbind(param, se, HPDTot,RhatFin),digits=5)
+dimnames(paramT) <- list(c(namespar,expression(sigma^2),expression(nu)),c("Mean", "Sd", " HPD(95%)","", "Rhat"))
+}
+else{
+dimnames(paramT) <- list(c(namespar,expression(sigma^2),expression(nu)),c("Mean", "Sd", " HPD(95%)",""))
+}
   }
   if( type=="NormalC")
   {
@@ -85,36 +121,49 @@ namespar <- colnames(x)
      rho1 <- mean(out$rho)
      senu <- sd(out$nu)
     serho <- sd(out$rho)
-   HPDnu  <- boa.hpd(out$nu,alpha=0.05)
-   HPDrho <- boa.hpd(out$rho,alpha=0.05)
+   HPDnu  <- hpd(out$nu,alpha=0.05)
+   HPDrho <- hpd(out$rho,alpha=0.05)
        se <- rbind(sebetas,sesigma2,senu,serho)
     param <- rbind(betas,sigma2,nu1,rho1)
    HPDTot <- rbind(HPD,HPDS2,HPDnu,HPDrho)
    paramT <- round(cbind(param, se, HPDTot),digits=5)
  namespar <- colnames(x)
- dimnames(paramT) <- list(c(namespar,expression(sigma^2),expression(nu),expression(rho)),c("Mean","Sd", " HPD(95%)",""))
+     colx <- ncol(as.matrix(x))
+if(length(namespar)==0)namespar <- namesx[1:colx]
+if(n.chains>1)
+{
+   RBeta <- Rhat1(out$beta,n.iter,burnin,n.chains,n.thin) 
+  Rsigma <- Rhat1(out$sigma2,n.iter,burnin,n.chains,n.thin)
+     Rnu <- Rhat1(out$nu,n.iter,burnin,n.chains,n.thin)  
+    Rrho <- Rhat1(out$rho,n.iter,burnin,n.chains,n.thin)  
+ RhatFin <- rbind(RBeta,Rsigma, Rnu,Rrho)
+  paramT <- round(cbind(param, se, HPDTot,RhatFin),digits=5)
+dimnames(paramT) <- list(c(namespar,expression(sigma^2),expression(nu),expression(rho)),c("Mean","Sd", " HPD(95%)","","Rhat"))
+}
+else{
+dimnames(paramT) <- list(c(namespar,expression(sigma^2),expression(nu),expression(rho)),c("Mean","Sd", " HPD(95%)",""))
+}
   }
  cat('\n') 
+ cat('-------------------------------------------------------------\n')
  cat('Posterior mean(Mean), standard deviation(Sd) and HPD interval\n')
- cat('--------------------------------------------------\n')
+ cat('-------------------------------------------------------------\n')
  print(paramT)
- cat('--------------------------------------------------\n')
- cat('\r')
-  if(criteria=="TRUE")
-  {
+ cat('-------------------------------------------------------------\n')
+ cat('\r \n')
       x <- as.matrix(x)
   param <- ncol(x) 
    crit <- criterios(cc,y,espac=50,cadeia=out,type=type, cens=cens, p=param) 
 critFin <- c(crit$CPO, crit$DIC, crit$EAIC, crit$EBIC)
 critFin <- round(t(as.matrix(critFin)),digits=3)
-dimnames(critFin) <- list(c("Value"),c("CPO", "DIC", "EAIC","EBIC"))
+dimnames(critFin) <- list(c("Value"),c("LPML", "DIC", "EAIC","EBIC"))
  cat('\n') 
  cat('Model selection criteria\n')
- cat('--------------------------------------------------\n')
+ cat('-------------------------------------------------------------\n')
  print(critFin)
- cat('--------------------------------------------------\n')
- cat('\r')
-  }
+ cat('-------------------------------------------------------------\n')
+ cat('\r \n')
+
   if(influence=="TRUE")
   {
       x <- as.matrix(x)

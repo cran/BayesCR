@@ -1,9 +1,8 @@
-032ebe4a5854bf5d4badf35c4ac19a11 *DESCRIPTION
-6213f344498842d6b48b10a06b1a04e4 *NAMESPACE
-5bb0daa4909d3c1fb25756d3603c3b3d *R/Bayes.CR.r
-4f6fab9763124818cf16e1bdb0b94473 *R/GibbsTruncSMN.r
-8acc1f7e1f05f710a1c101b0b5bf1fa2 *R/Utilitarios.r
+a78564d74e257c41ac5c2e30d120c3dc *DESCRIPTION
+07722d47e90dd651d1da0219708726d3 *NAMESPACE
+eea92c7ce84aaca4691691746c945eef *R/Bayes.CR.r
+ea4d3e432692e3278d36c658fe836863 *R/GibbsTruncSMN.r
+f4db6c138813f508af1166ddc0f70709 *R/Utilitarios.r
 770a87fea5c5deec2add48b8bbc0dbe2 *data/wage.rate.txt.gz
-15478b340a8362bb79fd2a6ea0dde1a0 *desktop.ini
-54c7d3c77f32c4ccbc23c4e63ad10988 *man/Bayes.CR.Rd
-943d8503eb37eb09a136287cfab5fe51 *man/wage.rate.Rd
+3912d834ca29330fe44ea9512b852251 *man/Bayes.CR.Rd
+f70ada71b3d91319115db66fe35963ec *man/wage.rate.Rd
