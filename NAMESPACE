@@ -1,2 +1,13 @@
 export(Bayes.CR)
 
+export(rSMSN)
+
+import(Rlab)
+
+import(mnormt)
+
+import(mvtnorm)
+
+import(truncdist)
+
+import(rootSolve)
